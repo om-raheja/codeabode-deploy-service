@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: game-deploy-service
+    env: docker
+    dockerfilePath: ./Dockerfile
+    region: oregon
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
