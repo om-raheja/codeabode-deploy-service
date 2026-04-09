@@ -47,49 +47,61 @@ app.post('/deploy/python', upload.single('code'), async (req, res) => {
         
         console.log(`Building Python game: ${deployId}`);
         
+        // Check what's installed
         try {
-            execSync('pip install pygbag --quiet 2>&1', { 
-                stdio: 'pipe',
-                timeout: 120 
-            });
+            const pipCheck = execSync('pip3 list 2>&1', { stdio: 'pipe' });
+            console.log('pip3 packages:', pipCheck.toString().slice(0, 500));
         } catch (e) {
-            console.log('pip install:', e.message);
+            console.log('pip3 check failed:', e.message);
         }
         
+        // Try to run pygbag
+        console.log(`Running: python3 -m pygbag --package Bernadette ${filename}`);
         try {
-            execSync(`pip3 install --break-system-packages pygame pygbag 2>&1`, { 
+            const result = execSync(`python3 -m pygbag --package Bernadette ${filename} 2>&1`, { 
                 stdio: 'pipe',
-                timeout: 120 
-            });
-        } catch (e) {
-            console.log('pip install:', e.message);
-        }
-        
-        try {
-            execSync(`python3 -m pygbag --package Bernadette ${filename} 2>&1`, { 
-                stdio: 'inherit',
                 cwd: workPath,
-                timeout: 180
+                timeout: 300
             });
+            console.log('pygbag output:', result.toString());
         } catch (e) {
-            console.log('pygbag build:', e.message);
+            console.log('pygbag error:', e.message);
         }
         
-        // pygbag creates Bernadette/build/web/ (not release)
-        const BernadetteDir = path.join(workPath, 'Bernadette', 'build', 'web');
+        // Check what was created
+        console.log('Files in workPath:');
+        try {
+            const files = execSync('find . -type f 2>&1', { cwd: workPath });
+            console.log(files.toString().slice(0, 2000));
+        } catch (e) {
+            console.log('find error:', e.message);
+        }
+        
+        // Try different possible output paths
+        const possiblePaths = [
+            path.join(workPath, 'Bernadette', 'build', 'web'),
+            path.join(workPath, 'Bernadette', 'build', 'release', 'web'),
+            path.join(workPath, 'build', 'web'),
+            path.join(workPath, ' Bernadette', 'build', 'web'),
+        ];
         
         let built = false;
-        if (fs.existsSync(BernadetteDir)) {
-            const files = fs.readdirSync(BernadetteDir);
-            if (files.length > 0) {
-                fs.cpSync(BernadetteDir, outputPath, { recursive: true });
-                built = true;
-                console.log(`Copied to ${outputPath}`);
+        for (const BernadetteDir of possiblePaths) {
+            console.log(`Checking: ${BernadetteDir}`);
+            if (fs.existsSync(BernadetteDir)) {
+                const files = fs.readdirSync(BernadetteDir);
+                console.log(`Found files: ${files.join(', ')}`);
+                if (files.length > 0) {
+                    fs.cpSync(BernadetteDir, outputPath, { recursive: true });
+                    built = true;
+                    console.log(`Copied from ${BernadetteDir} to ${outputPath}`);
+                    break;
+                }
             }
         }
         
         if (!built) {
-            return res.status(500).json({ error: 'Build failed - no output generated. Make sure your file is named main.py and uses pygame.' });
+            return res.status(500).json({ error: 'Build failed - no output generated. Check server logs.' });
         }
         
         const deployUrl = `https://game-deploy-service.onrender.com/games/${deployId}/index.html`;
