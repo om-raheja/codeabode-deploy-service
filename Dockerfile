@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     && mkdir -p /var/www/html/games \
     && echo 'server { listen 80; root /var/www/html; location /games/ { add_header Access-Control-Allow-Origin *; } }' > /etc/nginx/sites-available/default
 
+RUN pip3 install --break-system-packages pygame pygbag
+
 WORKDIR /app
 
 COPY package*.json ./

@@ -57,7 +57,16 @@ app.post('/deploy/python', upload.single('code'), async (req, res) => {
         }
         
         try {
-            execSync(`python -m pygbag --package Bernadette ${filename} 2>&1`, { 
+            execSync(`pip3 install --break-system-packages pygame pygbag 2>&1`, { 
+                stdio: 'pipe',
+                timeout: 120 
+            });
+        } catch (e) {
+            console.log('pip install:', e.message);
+        }
+        
+        try {
+            execSync(`python3 -m pygbag --package Bernadette ${filename} 2>&1`, { 
                 stdio: 'inherit',
                 cwd: workPath,
                 timeout: 180
@@ -66,7 +75,8 @@ app.post('/deploy/python', upload.single('code'), async (req, res) => {
             console.log('pygbag build:', e.message);
         }
         
-        const BernadetteDir = path.join(workPath, 'Bernadette', 'build', 'release', 'web');
+        // pygbag creates Bernadette/build/web/ (not release)
+        const BernadetteDir = path.join(workPath, 'Bernadette', 'build', 'web');
         
         let built = false;
         if (fs.existsSync(BernadetteDir)) {
